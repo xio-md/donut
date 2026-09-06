@@ -969,6 +969,9 @@ bool GltfImporter::Load(
             matinfo->opacity = material.pbr_metallic_roughness.base_color_factor[3];
         }
 
+        if (material.has_ior)
+            matinfo->ior = material.ior.ior;
+
         if (material.has_transmission)
         {
             if (material.has_pbr_specular_glossiness)

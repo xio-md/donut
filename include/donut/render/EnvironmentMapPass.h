@@ -48,6 +48,7 @@ namespace donut::render
 
         std::shared_ptr<engine::CommonRenderPasses> m_CommonPasses;
         std::shared_ptr<engine::FramebufferFactory> m_FramebufferFactory;
+        float m_Intensity = 1.f;
 
     public:
         EnvironmentMapPass(
@@ -56,7 +57,8 @@ namespace donut::render
             std::shared_ptr<engine::CommonRenderPasses> commonPasses,
             std::shared_ptr<engine::FramebufferFactory> framebufferFactory,
             const engine::ICompositeView& compositeView,
-            nvrhi::ITexture* environmentMap);
+            nvrhi::ITexture* environmentMap,
+            float intensity = 1.f);
 
         void Render(
             nvrhi::ICommandList* commandList,

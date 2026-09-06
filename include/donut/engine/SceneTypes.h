@@ -205,6 +205,7 @@ namespace donut::engine
         float opacity = 1.f; // for transparent materials; multiplied by diffuse.a if present
         float alphaCutoff = 0.5f; // for alpha tested materials
         float transmissionFactor = 0.f; // see KHR_materials_transmission; undefined on specular-gloss materials
+        float ior = 1.5f; // KHR_materials_ior; zero denotes infinite-IOR compatibility
         float normalTextureScale = 1.f;
         float occlusionStrength = 1.f;
         dm::float2 normalTextureTransformScale = 1.f;
@@ -365,6 +366,10 @@ namespace donut::engine
         float specularScale = 1.f;
         bool enabled = true;
         dm::frustum bounds = dm::frustum::infinite();
+        bool boxProjection = false;
+        dm::float3 capturePosition = dm::float3::zero();
+        dm::float3 boxMin = dm::float3::zero();
+        dm::float3 boxMax = dm::float3::zero();
 
         [[nodiscard]] bool IsActive() const;
         void FillLightProbeConstants(LightProbeConstants& lightProbeConstants) const;

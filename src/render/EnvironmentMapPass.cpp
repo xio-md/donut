@@ -51,9 +51,11 @@ EnvironmentMapPass::EnvironmentMapPass(
     std::shared_ptr<CommonRenderPasses> commonPasses,
     std::shared_ptr<FramebufferFactory> framebufferFactory,
     const ICompositeView& compositeView,
-    nvrhi::ITexture* environmentMap)
+    nvrhi::ITexture* environmentMap,
+    float intensity)
     : m_CommonPasses(commonPasses)
     , m_FramebufferFactory(framebufferFactory)
+    , m_Intensity(intensity)
 {
     nvrhi::TextureDimension envMapDimension = environmentMap->getDesc().dimension;
     bool isCubeMap = (envMapDimension == nvrhi::TextureDimension::TextureCube) || 
@@ -130,6 +132,10 @@ void EnvironmentMapPass::Render(
 
         SkyConstants skyConstants = {};
         skyConstants.matClipToTranslatedWorld = view->GetInverseViewProjectionMatrix() * affineToHomogeneous(translation(-view->GetViewOrigin()));
+        // EnvironmentMapPass does not use the procedural-sky payload. Reuse
+        // its final scalar slot to keep this extension ABI-compatible with
+        // SkyConstants while allowing scene-linear HDR world strength.
+        skyConstants.params.pad1 = m_Intensity;
         commandList->writeBuffer(m_SkyCB, &skyConstants, sizeof(skyConstants));
 
         commandList->setGraphicsState(state);

@@ -58,11 +58,23 @@ void main(
 
     const float PI = 3.14159265;
     float2 uv;
-    uv.x = azimuth / (2 * PI) - 0.25;
+    // CubemapView and the lat-long source use opposite handedness around the
+    // vertical axis. Mirror U here; a proper 3D rotation cannot correct that
+    // reflection for an asymmetric environment.
+    uv.x = 0.25 - azimuth / (2 * PI);
     uv.y = 0.5 - elevation / PI;
 
     o_color = t_EnvironmentMap.SampleLevel(s_Sampler, uv, 0);
 #else
-    o_color = t_EnvironmentMap.Sample(s_Sampler, float3(direction.x, direction.y, -direction.z));
+    // The converted cube is also sampled by diffuse/specular IBL with world
+    // directions. Mirroring Z only here made the visible sky disagree with
+    // lighting and VLM, particularly after a 90-degree dome rotation.
+    o_color = t_EnvironmentMap.Sample(s_Sampler, direction);
 #endif
+
+    // EnvironmentMapPass stores its scene-linear multiplier in the unused
+    // procedural-sky scalar. A world is background radiance, not sensor
+    // coverage, so it deliberately leaves alpha clear.
+    o_color.rgb *= g_Sky.params.pad1;
+    o_color.a = 0.0;
 }

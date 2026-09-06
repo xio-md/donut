@@ -74,6 +74,9 @@ struct LightProbeConstants
     uint2 padding2;
 
     float4 frustumPlanes[6];
+    float4 capturePosition; // w enables box-projected specular lookup
+    float4 boxMin;
+    float4 boxMax;
 };
 
 #endif // LIGHT_CB_H

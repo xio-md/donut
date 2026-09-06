@@ -75,7 +75,8 @@ struct MaterialConstants
     int     opacityTextureIndex;
     float2  normalTextureTransformScale;
 
-    uint3   padding1;
+    float   ior;
+    uint2   padding1;
     float   sssScale;
 
     float3  sssTransmissionColor;

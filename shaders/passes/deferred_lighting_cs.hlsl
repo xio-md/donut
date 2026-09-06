@@ -51,7 +51,11 @@ Texture2D t_GBuffer3 : register(t12);
 
 Texture2D t_IndirectDiffuse : register(t14);
 Texture2D t_IndirectSpecular : register(t15);
+#if defined(FLORA_SCREEN_SPACE_SHADOW_ARRAY)
+Texture2DArray t_ShadowBuffer : register(t16);
+#else
 Texture2D t_ShadowBuffer : register(t16);
+#endif
 Texture2D t_AmbientOcclusion : register(t17);
 
 VK_IMAGE_FORMAT("rgba16f") RWTexture2D<float4> u_Output : register(u0);
@@ -94,11 +98,21 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
 
         float shadow = 1;
 
+#if defined(FLORA_SCREEN_SPACE_SHADOW_ARRAY)
+        if (light.shadowChannel.x >= 0 && light.shadowChannel.x < 16)
+        {
+            int encodedChannel = light.shadowChannel.x;
+            float4 channels = t_ShadowBuffer[
+                int3(pixelPosition, encodedChannel >> 2)];
+            shadow = channels[encodedChannel & 3];
+        }
+#else
         if ((light.shadowChannel.x & 0xfffffffc) == 0) // check that the channel is between 0 and 3
         {
             float4 channels = t_ShadowBuffer[pixelPosition];
             shadow = channels[light.shadowChannel.x];
         }
+#endif
 
         float2 combinedCascadeShadow = 0;
 
@@ -147,7 +161,14 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
     float ambientOcclusion = 1;
     if (g_Deferred.enableAmbientOcclusion != 0)
     {
+#if defined(FLORA_AMBIENT_OCCLUSION_ALPHA)
+        // Flora's ray-query AO stores a bent-normal vector scaled by
+        // visibility in RGB for Hybrid VLM. Alpha is the scalar visibility
+        // consumed by conventional deferred environment lighting.
+        ambientOcclusion = t_AmbientOcclusion[pixelPosition].a;
+#else
         ambientOcclusion = t_AmbientOcclusion[pixelPosition].x;
+#endif
     }
 
     if (g_Deferred.numLightProbes > 0)
@@ -173,7 +194,8 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
 
             float specularMipLevel = sqrt(saturate(surfaceMaterial.roughness)) * (lightProbe.mipLevels - 1);
             float3 diffuseProbe = t_DiffuseLightProbe.SampleLevel(s_LightProbeSampler, float4(N.xyz, lightProbe.diffuseArrayIndex), 0).rgb;
-            float3 specularProbe = t_SpecularLightProbe.SampleLevel(s_LightProbeSampler, float4(R.xyz, lightProbe.specularArrayIndex), specularMipLevel).rgb;
+            float3 probeR = GetLightProbeSpecularDirection(lightProbe, surfaceWorldPos, R);
+            float3 specularProbe = t_SpecularLightProbe.SampleLevel(s_LightProbeSampler, float4(probeR, lightProbe.specularArrayIndex), specularMipLevel).rgb;
 
             lightProbeDiffuse += (weight * lightProbe.diffuseScale) * diffuseProbe;
             lightProbeSpecular += (weight * lightProbe.specularScale) * specularProbe;

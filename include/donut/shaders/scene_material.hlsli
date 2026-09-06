@@ -92,6 +92,11 @@ float GetPerceivedBrightness(float3 color)
 
 static const float c_DielectricSpecular = 0.04;
 
+float DielectricF0(float ior)
+{
+    return ior == 0.0 ? 1.0 : square((max(ior, 1.0) - 1.0) / (max(ior, 1.0) + 1.0));
+}
+
 float SolveMetalness(float diffuse, float specular, float oneMinusSpecularStrength)
 {
     if (specular < c_DielectricSpecular)
@@ -194,8 +199,9 @@ MaterialSample EvaluateSceneMaterial(float3 normal, float4 tangent, MaterialCons
 
         // Compute the BRDF inputs for the metal-rough model
         // https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#metal-brdf-and-dielectric-brdf
-        result.diffuseAlbedo = lerp(result.baseColor * (1.0 - c_DielectricSpecular), 0.0, result.metalness);
-        result.specularF0 = lerp(c_DielectricSpecular, result.baseColor.rgb, result.metalness);
+        float dielectricF0 = DielectricF0(material.ior);
+        result.diffuseAlbedo = lerp(result.baseColor * (1.0 - dielectricF0), 0.0, result.metalness);
+        result.specularF0 = lerp(dielectricF0, result.baseColor.rgb, result.metalness);
     }
     
     result.occlusion = 1.0;

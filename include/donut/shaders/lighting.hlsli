@@ -151,6 +151,21 @@ void ShadeSurface(LightConstants light, MaterialSample materialSample, float3 su
         materialSample.roughness, materialSample.specularF0, halfAngularSize) * irradiance;
 }
 
+float3 GetLightProbeSpecularDirection(LightProbeConstants probe, float3 position, float3 direction)
+{
+    if (probe.capturePosition.w < 0.5 || any(position < probe.boxMin.xyz) || any(position > probe.boxMax.xyz))
+        return direction;
+    float3 safeDirection = float3(
+        abs(direction.x) < 1e-6 ? (direction.x < 0 ? -1e-6 : 1e-6) : direction.x,
+        abs(direction.y) < 1e-6 ? (direction.y < 0 ? -1e-6 : 1e-6) : direction.y,
+        abs(direction.z) < 1e-6 ? (direction.z < 0 ? -1e-6 : 1e-6) : direction.z);
+    float3 exitDistance = max((probe.boxMin.xyz-position)/safeDirection,
+                             (probe.boxMax.xyz-position)/safeDirection);
+    float distance = min(exitDistance.x, min(exitDistance.y, exitDistance.z));
+    float3 lookup = position + direction * max(distance, 0.0) - probe.capturePosition.xyz;
+    return dot(lookup,lookup) > 1e-10 ? lookup : direction;
+}
+
 float GetLightProbeWeight(LightProbeConstants lightProbe, float3 position)
 {
     float weight = 1;

@@ -163,7 +163,8 @@ void main(
 
             float specularMipLevel = sqrt(saturate(surfaceMaterial.roughness)) * (lightProbe.mipLevels - 1);
             float3 diffuseProbe = t_DiffuseLightProbe.SampleLevel(s_LightProbeSampler, float4(N.xyz, lightProbe.diffuseArrayIndex), 0).rgb;
-            float3 specularProbe = t_SpecularLightProbe.SampleLevel(s_LightProbeSampler, float4(R.xyz, lightProbe.specularArrayIndex), specularMipLevel).rgb;
+            float3 probeR = GetLightProbeSpecularDirection(lightProbe, surfaceWorldPos, R);
+            float3 specularProbe = t_SpecularLightProbe.SampleLevel(s_LightProbeSampler, float4(probeR, lightProbe.specularArrayIndex), specularMipLevel).rgb;
 
             lightProbeDiffuse += (weight * lightProbe.diffuseScale) * diffuseProbe;
             lightProbeSpecular += (weight * lightProbe.specularScale) * specularProbe;
@@ -192,7 +193,7 @@ void main(
     
     // See https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_transmission/README.md#transmission-btdf
 
-    float dielectricFresnel = Schlick_Fresnel(0.04, NdotV);
+    float dielectricFresnel = Schlick_Fresnel(DielectricF0(g_Material.ior), NdotV);
     
     o_color.rgb = diffuseTerm * (1.0 - surfaceMaterial.transmission)
         + specularTerm
@@ -203,9 +204,6 @@ void main(
     float backgroundScalar = surfaceMaterial.transmission
         * (1.0 - dielectricFresnel);
 
-    if (g_Material.domain == MaterialDomain_TransmissiveAlphaBlended)
-        backgroundScalar *= (1.0 - surfaceMaterial.opacity);
-    
     o_backgroundBlendFactor.rgb = backgroundScalar;
 
     if (surfaceMaterial.hasMetalRoughParams)
@@ -218,6 +216,14 @@ void main(
     }
 
     o_backgroundBlendFactor.a = 1.0;
+
+    if (g_Material.domain == MaterialDomain_TransmissiveAlphaBlended)
+    {
+        // Coverage is independent of optical transmission: alpha=0 must
+        // preserve the background and add no reflected/emitted light.
+        o_color.rgb *= surfaceMaterial.opacity;
+        o_backgroundBlendFactor.rgb = lerp(1.0, o_backgroundBlendFactor.rgb, surfaceMaterial.opacity);
+    }
 
 #else // TRANSMISSIVE_MATERIAL
 

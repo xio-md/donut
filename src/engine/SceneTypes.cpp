@@ -395,6 +395,9 @@ void LightProbe::FillLightProbeConstants(LightProbeConstants& lightProbeConstant
     lightProbeConstants.diffuseScale = diffuseScale;
     lightProbeConstants.specularScale = specularScale;
     lightProbeConstants.mipLevels = specularMap ? static_cast<float>(specularMap->getDesc().mipLevels) : 0.f;
+    lightProbeConstants.capturePosition = float4(capturePosition, boxProjection ? 1.f : 0.f);
+    lightProbeConstants.boxMin = float4(boxMin, 0.f);
+    lightProbeConstants.boxMax = float4(boxMax, 0.f);
 
     for (uint32_t nPlane = 0; nPlane < frustum::PLANES_COUNT; nPlane++)
     {

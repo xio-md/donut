@@ -158,7 +158,8 @@ namespace donut::engine
         constants.transmissionTextureIndex = GetBindlessTextureIndex(transmissionTexture);
         constants.opacityTextureIndex = GetBindlessTextureIndex(opacityTexture);
 
-        constants.padding1 = uint3(0, 0, 0);
+        constants.ior = ior;
+        constants.padding1 = uint2(0, 0);
     }
 
     bool Material::SetProperty(const std::string& name, const dm::float4& value)
@@ -176,6 +177,7 @@ namespace donut::engine
         FLOAT_PROPERTY(opacity);
         FLOAT_PROPERTY(alphaCutoff);
         FLOAT_PROPERTY(transmissionFactor);
+        FLOAT_PROPERTY(ior);
         FLOAT_PROPERTY(normalTextureScale);
         FLOAT_PROPERTY(occlusionStrength);
         FLOAT2_PROPERTY(normalTextureTransformScale);
