@@ -209,6 +209,12 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
             lightProbeSpecular *= invWeight;
         }
 
+#if defined(FLORA_VLM_ENVIRONMENT_COVERAGE)
+        // A fixed full-environment VLM replaces diffuse IBL only where its
+        // sampler found valid data. Outside its volume, keep normal IBL.
+        if (g_Deferred.indirectDiffuseScale > 0)
+            lightProbeDiffuse *= 1.0 - saturate(t_IndirectDiffuse[pixelPosition].a);
+#endif
         diffuseTerm += lightProbeDiffuse * surfaceMaterial.diffuseAlbedo * ambientOcclusion * surfaceMaterial.occlusion;
         specularTerm += lightProbeSpecular * (surfaceMaterial.specularF0 * environmentBrdf.x + environmentBrdf.y) * ambientOcclusion * surfaceMaterial.occlusion;
     }

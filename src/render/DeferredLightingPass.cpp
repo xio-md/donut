@@ -149,7 +149,7 @@ void DeferredLightingPass::Render(
     deferredConstants.ambientColorTop = float4(inputs.ambientColorTop, 0.f);
     deferredConstants.ambientColorBottom = float4(inputs.ambientColorBottom, 0.f);
     deferredConstants.enableAmbientOcclusion = (inputs.ambientOcclusion != nullptr);
-    deferredConstants.indirectDiffuseScale = 1.f;
+    deferredConstants.indirectDiffuseScale = inputs.indirectDiffuse ? 1.f : 0.f;
     deferredConstants.indirectSpecularScale = 1.f;
 
     nvrhi::ITexture* shadowMapTexture = nullptr;
