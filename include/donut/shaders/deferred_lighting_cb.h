@@ -26,7 +26,7 @@
 #include "light_cb.h"
 #include "view_cb.h"
 
-#define DEFERRED_MAX_LIGHTS 16
+#define DEFERRED_MAX_LIGHTS 32
 #define DEFERRED_MAX_SHADOWS 16
 #define DEFERRED_MAX_LIGHT_PROBES 16
 

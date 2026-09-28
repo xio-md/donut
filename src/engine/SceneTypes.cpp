@@ -253,6 +253,31 @@ bool SpotLight::SetProperty(const std::string& name, const dm::float4& value)
     return Light::SetProperty(name, value);
 }
 
+dm::float3 RectLight::GetWorldHalfU() const
+{
+    const auto node = GetNode();
+    return node ? dm::float3(node->GetLocalToWorldTransform().transformVector(dm::double3(halfU))) : halfU;
+}
+dm::float3 RectLight::GetWorldHalfV() const
+{
+    const auto node = GetNode();
+    return node ? dm::float3(node->GetLocalToWorldTransform().transformVector(dm::double3(halfV))) : halfV;
+}
+std::shared_ptr<SceneGraphLeaf> RectLight::Clone()
+{
+    auto result = std::make_shared<RectLight>();
+    result->color = color; result->radiance = radiance;
+    result->halfU = halfU; result->halfV = halfV;
+    return result;
+}
+void RectLight::FillLightConstants(LightConstants& constants) const
+{
+    Light::FillLightConstants(constants);
+    constants.lightType = LightType_Rect;
+    constants.position = dm::float3(GetPosition());
+    constants.intensity = radiance;
+}
+
 std::shared_ptr<SceneGraphLeaf> PointLight::Clone()
 {
     auto copy = std::make_shared<PointLight>();

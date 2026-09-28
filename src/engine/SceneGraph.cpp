@@ -1140,6 +1140,8 @@ std::shared_ptr<SceneGraphLeaf> SceneTypeFactory::CreateLeaf(const std::string& 
     {
         return std::make_shared<DirectionalLight>();
     }
+    if (type == "RectLight")
+        return std::make_shared<RectLight>();
     if (type == "PointLight")
     {
         return std::make_shared<PointLight>();

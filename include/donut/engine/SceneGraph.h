@@ -247,6 +247,20 @@ namespace donut::engine
         bool SetProperty(const std::string& name, const dm::float4& value) override;
     };
     
+    // One-sided Lambertian area emitter, local half edges transformed with its node.
+    class RectLight : public Light
+    {
+    public:
+        float radiance = 1.f;
+        dm::float3 halfU = dm::float3(.5f, 0.f, 0.f);
+        dm::float3 halfV = dm::float3(0.f, .5f, 0.f);
+        dm::float3 GetWorldHalfU() const;
+        dm::float3 GetWorldHalfV() const;
+        [[nodiscard]] std::shared_ptr<SceneGraphLeaf> Clone() override;
+        [[nodiscard]] int GetLightType() const override { return LightType_Rect; }
+        void FillLightConstants(LightConstants& constants) const override;
+    };
+
     class SceneGraphNode final : public std::enable_shared_from_this<SceneGraphNode>
     {
     public:

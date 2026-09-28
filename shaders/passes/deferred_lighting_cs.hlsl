@@ -57,6 +57,8 @@ Texture2DArray t_ShadowBuffer : register(t16);
 Texture2D t_ShadowBuffer : register(t16);
 #endif
 Texture2D t_AmbientOcclusion : register(t17);
+Texture2D t_AreaDiffuse : register(t18);
+Texture2D t_AreaSpecular : register(t19);
 
 VK_IMAGE_FORMAT("rgba16f") RWTexture2D<float4> u_Output : register(u0);
 
@@ -82,12 +84,13 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
     gbufferChannels[3] = t_GBuffer3[pixelPosition];
     MaterialSample surfaceMaterial = DecodeGBuffer(gbufferChannels);
 
-    float3 surfaceWorldPos = ReconstructWorldPosition(g_Deferred.view, float2(pixelPosition) + 0.5, t_GBufferDepth[pixelPosition].x);
+    float3 surfaceViewPos = ReconstructViewPosition(g_Deferred.view, float2(pixelPosition) + 0.5, t_GBufferDepth[pixelPosition].x);
+    float3 surfaceWorldPos = mul(float4(surfaceViewPos, 1.f), g_Deferred.view.matViewToWorld).xyz;
         
     float3 viewIncident = GetIncidentVector(g_Deferred.view.cameraDirectionOrPosition, surfaceWorldPos);
 
-    float3 diffuseTerm = 0;
-    float3 specularTerm = 0;
+    float3 diffuseTerm = t_AreaDiffuse.Load(int3(pixelPosition, 0)).rgb;
+    float3 specularTerm = t_AreaSpecular.Load(int3(pixelPosition, 0)).rgb;
     float angle = GetRandom(i_globalIdx.xy + g_Deferred.randomOffset);
     float2 sincos = float2(sin(angle), cos(angle));
 
@@ -99,7 +102,7 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
         float shadow = 1;
 
 #if defined(FLORA_SCREEN_SPACE_SHADOW_ARRAY)
-        if (light.shadowChannel.x >= 0 && light.shadowChannel.x < 16)
+        if (light.shadowChannel.x >= 0 && light.shadowChannel.x < DEFERRED_MAX_LIGHTS)
         {
             int encodedChannel = light.shadowChannel.x;
             float4 channels = t_ShadowBuffer[

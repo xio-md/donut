@@ -28,6 +28,9 @@
 #include <donut/engine/SceneGraph.h>
 #include <donut/core/vfs/VFS.h>
 #include <donut/core/log.h>
+#include <json/json.h>
+#include <sstream>
+#include <stdexcept>
 
 #include "nvrhi/common/misc.h"
 
@@ -1870,6 +1873,28 @@ bool GltfImporter::Load(
                     dst->SetLeaf(light);
                 }
             }
+        }
+
+        for (size_t extIndex = 0; extIndex < src->extensions_count; ++extIndex)
+        {
+            const auto& ext = src->extensions[extIndex];
+            if (std::string(ext.name) != "FLORA_lights_area") continue;
+            Json::Value value;
+            std::istringstream input(ext.data);
+            input >> value;
+            if (value["version"].asInt() != 1 || value["type"].asString() != "rect")
+                throw std::runtime_error("Unsupported FLORA_lights_area schema");
+            auto rect = std::make_shared<RectLight>();
+            rect->radiance = value["radiance"].asFloat();
+            for (int axis = 0; axis < 3; ++axis)
+            {
+                rect->color[axis] = value["color"][axis].asFloat();
+                rect->halfU[axis] = value["halfU"][axis].asFloat();
+                rect->halfV[axis] = value["halfV"][axis].asFloat();
+            }
+            if (dst->GetLeaf())
+                throw std::runtime_error("Area-light nodes must not also carry meshes or punctual lights");
+            dst->SetLeaf(rect);
         }
 
         if (src->children_count)
