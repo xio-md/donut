@@ -25,6 +25,9 @@ set (NVRHI_DEFAULT_VK_REGISTER_OFFSETS
     --bRegShift 256
     --uRegShift 384)
 
+set(DONUT_SHADERMAKE_OPTIONS_SPIRV "" CACHE STRING
+    "Additional ShaderMake options applied to every SPIR-V shader target")
+
 # Generates a build target that will compile shaders for a given config file
 # Usage:
 #
@@ -138,6 +141,7 @@ function(donut_compile_shaders)
     separate_arguments(params_SHADERMAKE_OPTIONS_DXIL  NATIVE_COMMAND "${params_SHADERMAKE_OPTIONS_DXIL}")
     separate_arguments(params_SHADERMAKE_OPTIONS_DXBC  NATIVE_COMMAND "${params_SHADERMAKE_OPTIONS_DXBC}")
     separate_arguments(params_SHADERMAKE_OPTIONS_SPIRV NATIVE_COMMAND "${params_SHADERMAKE_OPTIONS_SPIRV}")
+    separate_arguments(global_SHADERMAKE_OPTIONS_SPIRV NATIVE_COMMAND "${DONUT_SHADERMAKE_OPTIONS_SPIRV}")
 
     
     set(include_dirs "")
@@ -274,6 +278,7 @@ function(donut_compile_shaders)
 
         list(APPEND compilerCommand ${params_SHADERMAKE_OPTIONS})
         list(APPEND compilerCommand ${params_SHADERMAKE_OPTIONS_SPIRV})
+        list(APPEND compilerCommand ${global_SHADERMAKE_OPTIONS_SPIRV})
 
         if ("${params_BYPRODUCTS_SPIRV}" STREQUAL "")
             add_custom_command(TARGET ${params_TARGET} PRE_BUILD COMMAND ${compilerCommand})
@@ -310,6 +315,7 @@ function(donut_compile_shaders)
 
         list(APPEND compilerCommand ${params_SHADERMAKE_OPTIONS})
         list(APPEND compilerCommand ${params_SHADERMAKE_OPTIONS_SPIRV})
+        list(APPEND compilerCommand ${global_SHADERMAKE_OPTIONS_SPIRV})
 
         if ("${params_BYPRODUCTS_SPIRV}" STREQUAL "")
             add_custom_command(TARGET ${params_TARGET} PRE_BUILD COMMAND ${compilerCommand})
