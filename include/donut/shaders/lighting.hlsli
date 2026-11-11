@@ -151,9 +151,16 @@ void ShadeSurface(LightConstants light, MaterialSample materialSample, float3 su
         materialSample.roughness, materialSample.specularF0, halfAngularSize) * irradiance;
 }
 
+bool ContainsLocalReflectionProbe(LightProbeConstants probe, float3 position)
+{
+    // Reconstructed world positions can straddle the AABB by a few ulps.
+    return probe.capturePosition.w >= 0.5 && all(position >= probe.boxMin.xyz - 1e-4)
+        && all(position <= probe.boxMax.xyz + 1e-4);
+}
+
 float3 GetLightProbeSpecularDirection(LightProbeConstants probe, float3 position, float3 direction)
 {
-    if (probe.capturePosition.w < 0.5 || any(position < probe.boxMin.xyz) || any(position > probe.boxMax.xyz))
+    if (!ContainsLocalReflectionProbe(probe, position))
         return direction;
     float3 safeDirection = float3(
         abs(direction.x) < 1e-6 ? (direction.x < 0 ? -1e-6 : 1e-6) : direction.x,

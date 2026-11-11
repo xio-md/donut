@@ -407,7 +407,7 @@ bool LightProbe::IsActive() const
         return false;
     if (bounds.isempty())
         return false;
-    if ((diffuseScale == 0.f || !diffuseMap) && (specularScale == 0.f || !specularMap))
+    if ((diffuseScale == 0.f || !diffuseMap) && ((!boxProjection && specularScale == 0.f) || !specularMap))
         return false;
 
     return true;
