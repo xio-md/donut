@@ -151,17 +151,20 @@ void ShadeSurface(LightConstants light, MaterialSample materialSample, float3 su
         materialSample.roughness, materialSample.specularF0, halfAngularSize) * irradiance;
 }
 
-bool ContainsLocalReflectionProbe(LightProbeConstants probe, float3 position)
+float GetLocalReflectionProbeWeight(LightProbeConstants probe, float3 position)
 {
-    // Reconstructed world positions can straddle the AABB by a few ulps.
-    return probe.capturePosition.w >= 0.5 && all(position >= probe.boxMin.xyz - 1e-4)
-        && all(position <= probe.boxMax.xyz + 1e-4);
+    // Adjacent boxes share the transition band around their common face.
+    float3 blendWidth = clamp((probe.boxMax.xyz - probe.boxMin.xyz) * 0.12, 0.05, 0.35);
+    float3 interior = min(position - probe.boxMin.xyz, probe.boxMax.xyz - position);
+    float3 weight = smoothstep(-blendWidth, blendWidth, interior);
+    return weight.x * weight.y * weight.z;
 }
 
 float3 GetLightProbeSpecularDirection(LightProbeConstants probe, float3 position, float3 direction)
 {
-    if (!ContainsLocalReflectionProbe(probe, position))
+    if (probe.capturePosition.w < 0.5)
         return direction;
+    position = clamp(position, probe.boxMin.xyz, probe.boxMax.xyz);
     float3 safeDirection = float3(
         abs(direction.x) < 1e-6 ? (direction.x < 0 ? -1e-6 : 1e-6) : direction.x,
         abs(direction.y) < 1e-6 ? (direction.y < 0 ? -1e-6 : 1e-6) : direction.y,

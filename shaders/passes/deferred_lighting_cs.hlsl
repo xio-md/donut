@@ -184,8 +184,8 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
         float lightProbeWeight = 0;
         float3 lightProbeDiffuse = 0;
         float3 lightProbeSpecular = 0;
-        int localProbeIndex = -1;
-        float localProbeDistanceSquared = 3.402823e+38;
+        float localProbeWeight = 0;
+        float3 localProbeSpecular = 0;
 
         [loop]
         for (uint nProbe = 0; nProbe < g_Deferred.numLightProbes; nProbe++)
@@ -193,15 +193,14 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
             LightProbeConstants lightProbe = g_Deferred.lightProbes[nProbe];
             if (lightProbe.capturePosition.w >= 0.5)
             {
-                if (ContainsLocalReflectionProbe(lightProbe, surfaceWorldPos))
+                float localWeight = GetLocalReflectionProbeWeight(lightProbe, surfaceWorldPos);
+                if (localWeight > 0)
                 {
-                    float3 offset = surfaceWorldPos - lightProbe.capturePosition.xyz;
-                    float distanceSquared = dot(offset, offset);
-                    if (distanceSquared < localProbeDistanceSquared)
-                    {
-                        localProbeIndex = int(nProbe);
-                        localProbeDistanceSquared = distanceSquared;
-                    }
+                    float mip = sqrt(saturate(surfaceMaterial.roughness)) * (lightProbe.mipLevels - 1);
+                    float3 direction = GetLightProbeSpecularDirection(lightProbe, surfaceWorldPos, R);
+                    localProbeSpecular += localWeight * lightProbe.specularScale * t_SpecularLightProbe.SampleLevel(
+                        s_LightProbeSampler, float4(direction, lightProbe.specularArrayIndex), mip).rgb;
+                    localProbeWeight += localWeight;
                 }
                 continue;
             }
@@ -213,11 +212,8 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
 
             float specularMipLevel = sqrt(saturate(surfaceMaterial.roughness)) * (lightProbe.mipLevels - 1);
             float3 diffuseProbe = t_DiffuseLightProbe.SampleLevel(s_LightProbeSampler, float4(N.xyz, lightProbe.diffuseArrayIndex), 0).rgb;
-            if (localProbeIndex < 0)
-            {
-                float3 specularProbe = t_SpecularLightProbe.SampleLevel(s_LightProbeSampler, float4(R, lightProbe.specularArrayIndex), specularMipLevel).rgb;
-                lightProbeSpecular += (weight * lightProbe.specularScale) * specularProbe;
-            }
+            float3 specularProbe = t_SpecularLightProbe.SampleLevel(s_LightProbeSampler, float4(R, lightProbe.specularArrayIndex), specularMipLevel).rgb;
+            lightProbeSpecular += (weight * lightProbe.specularScale) * specularProbe;
 
             lightProbeDiffuse += (weight * lightProbe.diffuseScale) * diffuseProbe;
             lightProbeWeight += weight;
@@ -229,14 +225,8 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
             lightProbeDiffuse *= invWeight;
             lightProbeSpecular *= invWeight;
         }
-        if (localProbeIndex >= 0)
-        {
-            LightProbeConstants probe = g_Deferred.lightProbes[localProbeIndex];
-            float mip = sqrt(saturate(surfaceMaterial.roughness)) * (probe.mipLevels - 1);
-            float3 direction = GetLightProbeSpecularDirection(probe, surfaceWorldPos, R);
-            lightProbeSpecular = probe.specularScale * t_SpecularLightProbe.SampleLevel(
-                s_LightProbeSampler, float4(direction, probe.specularArrayIndex), mip).rgb;
-        }
+        lightProbeSpecular = (1.0 - saturate(localProbeWeight)) * lightProbeSpecular
+            + localProbeSpecular / max(1.0, localProbeWeight);
 
 #if defined(FLORA_VLM_ENVIRONMENT_COVERAGE)
         // A fixed full-environment VLM replaces diffuse IBL only where its
