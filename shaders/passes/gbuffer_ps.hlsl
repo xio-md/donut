@@ -23,6 +23,7 @@
 #pragma pack_matrix(row_major)
 
 #include <donut/shaders/gbuffer_cb.h>
+#include <donut/shaders/gbuffer.hlsli>
 
 // Declare the constants that drive material bindings in 'material_bindings.hlsli'
 // to match the bindings explicitly declared in 'gbuffer_cb.h'.
@@ -80,7 +81,7 @@ void main(
     o_channel2.xyz = surface.shadingNormal;
     o_channel2.w = surface.roughness;
     o_channel3.xyz = surface.emissiveColor;
-    o_channel3.w = 0;
+    o_channel3.w = EncodeGBufferClearcoat(surface.clearcoatFactor, surface.clearcoatRoughness);
 
 #if MOTION_VECTORS
     o_motion = GetMotionVector(i_position.xyz, i_vtx.prevPos, c_GBuffer.view, c_GBuffer.viewPrev);

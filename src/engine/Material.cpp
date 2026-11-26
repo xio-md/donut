@@ -159,7 +159,8 @@ namespace donut::engine
         constants.opacityTextureIndex = GetBindlessTextureIndex(opacityTexture);
 
         constants.ior = ior;
-        constants.padding1 = uint2(0, 0);
+        constants.clearcoatFactor = clearcoatFactor;
+        constants.clearcoatRoughness = clearcoatRoughness;
     }
 
     bool Material::SetProperty(const std::string& name, const dm::float4& value)
@@ -172,6 +173,8 @@ namespace donut::engine
         FLOAT3_PROPERTY(specularColor);
         FLOAT3_PROPERTY(emissiveColor);
         FLOAT_PROPERTY(emissiveIntensity);
+        FLOAT_PROPERTY(clearcoatFactor);
+        FLOAT_PROPERTY(clearcoatRoughness);
         FLOAT_PROPERTY(metalness);
         FLOAT_PROPERTY(roughness);
         FLOAT_PROPERTY(opacity);

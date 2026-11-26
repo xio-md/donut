@@ -26,6 +26,17 @@
 #include "donut/shaders/view_cb.h"
 #include "donut/shaders/surface.hlsli"
 
+// The unused alpha of the RGBA16_FLOAT emissive target carries two UNORM7
+// values as an exact finite, normal half. Zero is the original uncoated layout.
+float EncodeGBufferClearcoat(float factor, float roughness)
+{
+    uint weight = uint(round(saturate(factor) * 127.0));
+    if (weight == 0)
+        return 0;
+    uint rough = uint(round(saturate(roughness) * 127.0));
+    return -f16tof32(0x0400u + (weight << 7) + rough);
+}
+
 MaterialSample DecodeGBuffer(float4 channels[4])
 {
     MaterialSample surface = DefaultMaterialSample();
@@ -38,6 +49,12 @@ MaterialSample DecodeGBuffer(float4 channels[4])
     surface.roughness = channels[2].w;
     surface.emissiveColor = channels[3].xyz;
     surface.geometryNormal = surface.shadingNormal;
+    if (channels[3].w < 0)
+    {
+        uint coat = f32tof16(-channels[3].w) - 0x0400u;
+        surface.clearcoatFactor = float((coat >> 7) & 127u) / 127.0;
+        surface.clearcoatRoughness = float(coat & 127u) / 127.0;
+    }
 
     return surface;
 }

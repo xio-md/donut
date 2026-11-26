@@ -57,6 +57,8 @@ struct MaterialSample
     float3 baseColor; // native in metal-rough, derived in spec-gloss
     float metalness; // native in metal-rough, derived in spec-gloss
     float transmission;
+    float clearcoatFactor;
+    float clearcoatRoughness;
     bool hasMetalRoughParams; // indicates that 'baseColor' and 'metalness' are valid
     MaterialSubsurfaceParams subsurfaceParams;
     MaterialHairParams hairParams;
@@ -76,6 +78,8 @@ MaterialSample DefaultMaterialSample()
     result.baseColor = 0;
     result.metalness = 0;
     result.transmission = 0;
+    result.clearcoatFactor = 0;
+    result.clearcoatRoughness = 0;
     result.hasMetalRoughParams = false;
     result.subsurfaceParams.transmissionColor = 0;
     result.subsurfaceParams.scatteringColor = 0;
