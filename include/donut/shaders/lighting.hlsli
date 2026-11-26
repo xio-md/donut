@@ -76,8 +76,18 @@ float GetClippedDiskArea(float3 incidentVector, float3 geometryNormal, float ang
     return smoothstep(-0.5, 0.5, fractionAboveHorizon);
 }
 
-void ShadeSurface(LightConstants light, MaterialSample materialSample, float3 surfacePos, float3 viewIncident, out float3 o_diffuseRadiance, out float3 o_specularRadiance)
+// The clear dielectric interface has IOR 1.5. Its view Fresnel weights
+// the whole substrate, including emission and transmission, exactly once.
+float GetClearcoatWeight(MaterialSample material, float3 viewIncident)
 {
+    if (material.clearcoatFactor == 0)
+        return 0;
+    return material.clearcoatFactor * Schlick_Fresnel(0.04, saturate(abs(dot(material.shadingNormal, viewIncident))));
+}
+
+void ShadeSurface(LightConstants light, MaterialSample materialSample, float3 surfacePos, float3 viewIncident, out float3 o_diffuseRadiance, out float3 o_specularRadiance, out float3 o_coatRadiance)
+{
+    o_coatRadiance = 0;
     o_diffuseRadiance = 0;
     o_specularRadiance = 0;
 
@@ -149,6 +159,22 @@ void ShadeSurface(LightConstants light, MaterialSample materialSample, float3 su
 
     o_specularRadiance = GGX_AnalyticalLights_times_NdotL(incidentVector, viewIncident, materialSample.shadingNormal,
         materialSample.roughness, materialSample.specularF0, halfAngularSize) * irradiance;
+    if (materialSample.clearcoatFactor > 0)
+        o_coatRadiance = GGX_AnalyticalLights_times_NdotL(incidentVector, viewIncident, materialSample.shadingNormal,
+            materialSample.clearcoatRoughness, float3(1, 1, 1), halfAngularSize) * irradiance;
+}
+
+// Preserve the two-output interface for custom raster shaders.
+void ShadeSurface(LightConstants light, MaterialSample materialSample, float3 surfacePos, float3 viewIncident, out float3 o_diffuseRadiance, out float3 o_specularRadiance)
+{
+    float3 coat;
+    ShadeSurface(light, materialSample, surfacePos, viewIncident, o_diffuseRadiance, o_specularRadiance, coat);
+    if (materialSample.clearcoatFactor > 0)
+    {
+        float weight = GetClearcoatWeight(materialSample, viewIncident);
+        o_diffuseRadiance *= 1.0 - weight;
+        o_specularRadiance = lerp(o_specularRadiance, coat, weight);
+    }
 }
 
 float GetLocalReflectionProbeWeight(LightProbeConstants probe, float3 position)

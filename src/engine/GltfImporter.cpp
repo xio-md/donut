@@ -972,6 +972,23 @@ bool GltfImporter::Load(
             matinfo->opacity = material.pbr_metallic_roughness.base_color_factor[3];
         }
 
+        if (material.has_clearcoat && material.clearcoat.clearcoat_factor > 0.f)
+        {
+            const auto& coat = material.clearcoat;
+            // Both raster paths currently carry one normal. A mapped base must
+            // not silently perturb a layer authored with an independent normal.
+            if (coat.clearcoat_texture.texture || coat.clearcoat_roughness_texture.texture ||
+                coat.clearcoat_normal_texture.texture || material.normal_texture.texture ||
+                material.has_pbr_specular_glossiness || material.unlit)
+                log::warning("Material '%s': clearcoat requires scalar factors and an unmapped metal-rough surface; skipping the layer.",
+                    material.name ? material.name : "<Unnamed>");
+            else
+            {
+                matinfo->clearcoatFactor = coat.clearcoat_factor;
+                matinfo->clearcoatRoughness = coat.clearcoat_roughness_factor;
+            }
+        }
+
         if (material.has_ior)
             matinfo->ior = material.ior.ior;
 

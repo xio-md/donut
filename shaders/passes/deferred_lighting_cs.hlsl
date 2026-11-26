@@ -89,6 +89,8 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
         
     float3 viewIncident = GetIncidentVector(g_Deferred.view.cameraDirectionOrPosition, surfaceWorldPos);
 
+    float coatWeight = GetClearcoatWeight(surfaceMaterial, viewIncident);
+    float3 coatTerm = 0;
     float3 diffuseTerm = t_AreaDiffuse.Load(int3(pixelPosition, 0)).rgb;
     float3 specularTerm = t_AreaSpecular.Load(int3(pixelPosition, 0)).rgb;
     float angle = GetRandom(i_globalIdx.xy + g_Deferred.randomOffset);
@@ -154,9 +156,10 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
 
         shadow *= objectShadow;
 
-        float3 diffuseRadiance, specularRadiance;
-        ShadeSurface(light, surfaceMaterial, surfaceWorldPos, viewIncident, diffuseRadiance, specularRadiance);
+        float3 diffuseRadiance, specularRadiance, coatRadiance;
+        ShadeSurface(light, surfaceMaterial, surfaceWorldPos, viewIncident, diffuseRadiance, specularRadiance, coatRadiance);
 
+        coatTerm += (shadow.x * coatRadiance) * light.color;
         diffuseTerm += (shadow.x * diffuseRadiance) * light.color;
         specularTerm += (shadow.x * specularRadiance) * light.color;
     }
@@ -186,6 +189,8 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
         float3 lightProbeSpecular = 0;
         float localProbeWeight = 0;
         float3 localProbeSpecular = 0;
+        float3 globalCoatProbe = 0;
+        float3 localCoatProbe = 0;
 
         [loop]
         for (uint nProbe = 0; nProbe < g_Deferred.numLightProbes; nProbe++)
@@ -200,6 +205,12 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
                     float3 direction = GetLightProbeSpecularDirection(lightProbe, surfaceWorldPos, R);
                     localProbeSpecular += localWeight * lightProbe.specularScale * t_SpecularLightProbe.SampleLevel(
                         s_LightProbeSampler, float4(direction, lightProbe.specularArrayIndex), mip).rgb;
+                    if (coatWeight > 0)
+                    {
+                        float coatMip = sqrt(surfaceMaterial.clearcoatRoughness) * (lightProbe.mipLevels - 1);
+                        localCoatProbe += localWeight * lightProbe.specularScale * t_SpecularLightProbe.SampleLevel(
+                            s_LightProbeSampler, float4(direction, lightProbe.specularArrayIndex), coatMip).rgb;
+                    }
                     localProbeWeight += localWeight;
                 }
                 continue;
@@ -215,6 +226,12 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
             float3 specularProbe = t_SpecularLightProbe.SampleLevel(s_LightProbeSampler, float4(R, lightProbe.specularArrayIndex), specularMipLevel).rgb;
             lightProbeSpecular += (weight * lightProbe.specularScale) * specularProbe;
 
+            if (coatWeight > 0)
+            {
+                float coatMip = sqrt(surfaceMaterial.clearcoatRoughness) * (lightProbe.mipLevels - 1);
+                globalCoatProbe += weight * lightProbe.specularScale * t_SpecularLightProbe.SampleLevel(
+                    s_LightProbeSampler, float4(R, lightProbe.specularArrayIndex), coatMip).rgb;
+            }
             lightProbeDiffuse += (weight * lightProbe.diffuseScale) * diffuseProbe;
             lightProbeWeight += weight;
         }
@@ -236,11 +253,19 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
 #endif
         diffuseTerm += lightProbeDiffuse * surfaceMaterial.diffuseAlbedo * ambientOcclusion * surfaceMaterial.occlusion;
         specularTerm += lightProbeSpecular * (surfaceMaterial.specularF0 * environmentBrdf.x + environmentBrdf.y) * ambientOcclusion * surfaceMaterial.occlusion;
+        if (coatWeight > 0)
+        {
+            float3 probe = (1.0 - saturate(localProbeWeight)) * globalCoatProbe / max(1.0, lightProbeWeight)
+                + localCoatProbe / max(1.0, localProbeWeight);
+            float2 brdf = t_EnvironmentBrdf.SampleLevel(s_BrdfSampler, float2(NdotV, surfaceMaterial.clearcoatRoughness), 0).xy;
+            coatTerm += probe * (brdf.x + brdf.y) * ambientOcclusion * surfaceMaterial.occlusion;
+        }
     }
 
     {
         float3 ambientColor = lerp(g_Deferred.ambientColorBottom.rgb, g_Deferred.ambientColorTop.rgb, surfaceMaterial.shadingNormal.y * 0.5 + 0.5);
 
+        coatTerm += ambientColor * ambientOcclusion * surfaceMaterial.occlusion;
         diffuseTerm += ambientColor * surfaceMaterial.diffuseAlbedo * ambientOcclusion * surfaceMaterial.occlusion;
         specularTerm += ambientColor * surfaceMaterial.specularF0 * ambientOcclusion * surfaceMaterial.occlusion;
     }
@@ -261,5 +286,8 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
         + specularTerm
         + surfaceMaterial.emissiveColor;
     
+    if (coatWeight > 0)
+        outputColor = lerp(outputColor, coatTerm, coatWeight);
+
     u_Output[pixelPosition] = float4(outputColor, 0);
 }

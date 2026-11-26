@@ -200,6 +200,8 @@ namespace donut::engine
         dm::float3 specularColor = 0.f; // spec-gloss: specular color
         dm::float3 emissiveColor = 0.f;
         float emissiveIntensity = 1.f; // additional multiplier for emissiveColor
+        float clearcoatFactor = 0.f;
+        float clearcoatRoughness = 0.f;
         float metalness = 0.f; // metal-rough only
         float roughness = 0.f; // both metal-rough and spec-gloss
         float opacity = 1.f; // for transparent materials; multiplied by diffuse.a if present

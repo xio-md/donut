@@ -196,6 +196,11 @@ MaterialSample EvaluateSceneMaterial(float3 normal, float4 tangent, MaterialCons
         else
             result.metalness = material.metalness * textures.metalRoughOrSpecular.b;
         result.hasMetalRoughParams = true;
+        if ((material.flags & MaterialFlags_UseNormalTexture) == 0)
+        {
+            result.clearcoatFactor = saturate(material.clearcoatFactor);
+            result.clearcoatRoughness = saturate(material.clearcoatRoughness);
+        }
 
         // Compute the BRDF inputs for the metal-rough model
         // https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#metal-brdf-and-dielectric-brdf

@@ -170,7 +170,8 @@ MaterialConstants LoadMaterialConstants(ByteAddressBuffer buffer, uint offset)
     ret.opacityTextureIndex = int(g.y);
     ret.normalTextureTransformScale = asfloat(g.zw);
     ret.ior = asfloat(h.x);
-    ret.padding1 = h.yz;
+    ret.clearcoatFactor = asfloat(h.y);
+    ret.clearcoatRoughness = asfloat(h.z);
     ret.sssScale = int(h.w);
     ret.sssTransmissionColor = asfloat(i.xyz);
     ret.sssAnisotropy = asfloat(i.w);

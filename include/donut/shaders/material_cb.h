@@ -76,7 +76,8 @@ struct MaterialConstants
     float2  normalTextureTransformScale;
 
     float   ior;
-    uint2   padding1;
+    float   clearcoatFactor;
+    float   clearcoatRoughness;
     float   sssScale;
 
     float3  sssTransmissionColor;

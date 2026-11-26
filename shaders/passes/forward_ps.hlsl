@@ -91,6 +91,8 @@ void main(
     float4 cameraDirectionOrPosition = g_ForwardView.view.cameraDirectionOrPosition;
     float3 viewIncident = GetIncidentVector(cameraDirectionOrPosition, surfaceWorldPos);
 
+    float coatWeight = GetClearcoatWeight(surfaceMaterial, viewIncident);
+    float3 coatTerm = 0;
     float3 diffuseTerm = 0;
     float3 specularTerm = 0;
 
@@ -131,9 +133,10 @@ void main(
 
         shadow.x *= objectShadow;
 
-        float3 diffuseRadiance, specularRadiance;
-        ShadeSurface(light, surfaceMaterial, surfaceWorldPos, viewIncident, diffuseRadiance, specularRadiance);
+        float3 diffuseRadiance, specularRadiance, coatRadiance;
+        ShadeSurface(light, surfaceMaterial, surfaceWorldPos, viewIncident, diffuseRadiance, specularRadiance, coatRadiance);
 
+        coatTerm += (shadow.x * coatRadiance) * light.color;
         diffuseTerm += (shadow.x * diffuseRadiance) * light.color;
         specularTerm += (shadow.x * specularRadiance) * light.color;
     }
@@ -152,6 +155,8 @@ void main(
         float3 lightProbeSpecular = 0;
         float localProbeWeight = 0;
         float3 localProbeSpecular = 0;
+        float3 globalCoatProbe = 0;
+        float3 localCoatProbe = 0;
 
         [loop]
         for (uint nProbe = 0; nProbe < g_ForwardLight.numLightProbes; nProbe++)
@@ -166,6 +171,12 @@ void main(
                     float3 direction = GetLightProbeSpecularDirection(lightProbe, surfaceWorldPos, R);
                     localProbeSpecular += localWeight * lightProbe.specularScale * t_SpecularLightProbe.SampleLevel(
                         s_LightProbeSampler, float4(direction, lightProbe.specularArrayIndex), mip).rgb;
+                    if (coatWeight > 0)
+                    {
+                        float coatMip = sqrt(surfaceMaterial.clearcoatRoughness) * (lightProbe.mipLevels - 1);
+                        localCoatProbe += localWeight * lightProbe.specularScale * t_SpecularLightProbe.SampleLevel(
+                            s_LightProbeSampler, float4(direction, lightProbe.specularArrayIndex), coatMip).rgb;
+                    }
                     localProbeWeight += localWeight;
                 }
                 continue;
@@ -181,6 +192,12 @@ void main(
             float3 specularProbe = t_SpecularLightProbe.SampleLevel(s_LightProbeSampler, float4(R, lightProbe.specularArrayIndex), specularMipLevel).rgb;
             lightProbeSpecular += (weight * lightProbe.specularScale) * specularProbe;
 
+            if (coatWeight > 0)
+            {
+                float coatMip = sqrt(surfaceMaterial.clearcoatRoughness) * (lightProbe.mipLevels - 1);
+                globalCoatProbe += weight * lightProbe.specularScale * t_SpecularLightProbe.SampleLevel(
+                    s_LightProbeSampler, float4(R, lightProbe.specularArrayIndex), coatMip).rgb;
+            }
             lightProbeDiffuse += (weight * lightProbe.diffuseScale) * diffuseProbe;
             lightProbeWeight += weight;
         }
@@ -196,11 +213,19 @@ void main(
 
         diffuseTerm += lightProbeDiffuse * surfaceMaterial.diffuseAlbedo * surfaceMaterial.occlusion;
         specularTerm += lightProbeSpecular * (surfaceMaterial.specularF0 * environmentBrdf.x + environmentBrdf.y) * surfaceMaterial.occlusion;
+        if (coatWeight > 0)
+        {
+            float3 probe = (1.0 - saturate(localProbeWeight)) * globalCoatProbe / max(1.0, lightProbeWeight)
+                + localCoatProbe / max(1.0, localProbeWeight);
+            float2 brdf = t_EnvironmentBrdf.SampleLevel(s_BrdfSampler, float2(NdotV, surfaceMaterial.clearcoatRoughness), 0).xy;
+            coatTerm += probe * (brdf.x + brdf.y) * surfaceMaterial.occlusion;
+        }
     }
 
     {
         float3 ambientColor = lerp(g_ForwardLight.ambientColorBottom.rgb, g_ForwardLight.ambientColorTop.rgb, surfaceMaterial.shadingNormal.y * 0.5 + 0.5);
 
+        coatTerm += ambientColor * surfaceMaterial.occlusion;
         diffuseTerm += ambientColor * surfaceMaterial.diffuseAlbedo * surfaceMaterial.occlusion;
         specularTerm += ambientColor * surfaceMaterial.specularF0 * surfaceMaterial.occlusion;
     }
@@ -214,11 +239,13 @@ void main(
     o_color.rgb = diffuseTerm * (1.0 - surfaceMaterial.transmission)
         + specularTerm
         + surfaceMaterial.emissiveColor;
+    if (coatWeight > 0)
+        o_color.rgb = lerp(o_color.rgb, coatTerm, coatWeight);
 
     o_color.a = 1.0;
 
     float backgroundScalar = surfaceMaterial.transmission
-        * (1.0 - dielectricFresnel);
+        * (1.0 - dielectricFresnel) * (1.0 - coatWeight);
 
     o_backgroundBlendFactor.rgb = backgroundScalar;
 
@@ -246,6 +273,8 @@ void main(
     o_color.rgb = diffuseTerm
         + specularTerm
         + surfaceMaterial.emissiveColor;
+    if (coatWeight > 0)
+        o_color.rgb = lerp(o_color.rgb, coatTerm, coatWeight);
 
     if (g_Material.domain == MaterialDomain_AlphaTested)
     {
